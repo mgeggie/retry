@@ -1,0 +1,93 @@
+#!/bin/bash
+# Author: mike@zumper.com
+
+function is_int {
+  # Returns 0 if passed argument is an integer
+  [ 1 -gt "$1" ] || [ 1 -le "$1" ]
+}
+
+function is_positive_int {
+  is_int "$1" && [ 0 -lt "$1" ]
+}
+
+function err {
+  echo >&2 "$0: ERROR: $1"
+}
+
+function fatal {
+  err "$2"
+  exit $1
+}
+
+function help {
+  cat<<EOF
+$0 [-h|--help] [-t|--tries N] [-p|--pause P] command to run
+EOF
+}
+
+
+
+# Parameter defaults
+COMMAND=""
+TRIES=3
+PAUSE=0
+
+while [[ $# -ge 1 ]]; do
+  KEY="$1"
+  case $KEY in
+    #-c|--command)
+    #  COMMAND=${2}
+    #  shift # past the param
+    #  ;;
+    -h|--help)
+      help
+      exit 0
+      ;;
+    -p|--pause)
+      if is_positive_int "$2"; then
+        PAUSE=${2}
+        shift # pasth the param
+      else
+        fatal 2 "-p|--pause must be a positive integer '$2' supplied"
+      fi
+      ;;
+    -t|--tries)
+      if is_positive_int "$2"; then
+        TRIES=$2
+        shift # past the param
+      else
+        fatal 1 "-t|--tries must be a positive integer, '$2' supplied"
+      fi
+      ;;
+    *)
+      COMMAND="$*"
+      for i in $#; do shift; done
+      break
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$COMMAND" ]; then
+  fatal 3 "-c|--command not specified"
+fi
+
+N=0
+while [[ $N -lt $TRIES ]]; do
+  $COMMAND
+  SUCCESS=$?
+  if [ $SUCCESS -eq 0 ]; then
+    break
+  else
+    N=$(($N+1))
+    if [ $PAUSE -gt 0 ]; then
+      sleep $PAUSE
+    fi
+  fi
+done
+
+if [ $N -ge $TRIES ]; then
+  fatal $N "Tried '$COMMAND' $N times, all failed. Exiting."
+else
+  exit 0
+fi
